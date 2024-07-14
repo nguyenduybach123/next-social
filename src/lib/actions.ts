@@ -3,6 +3,7 @@
 import { auth } from "@clerk/nextjs/server"
 import prisma from "./client";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 export const switchFollow = async (uid: string) => {
     const {userId:currentUserId} = auth();
@@ -161,7 +162,10 @@ export const declineFollowRequest = async (uid: string) => {
     }
 }
 
-export const updateProfile = async (formData: FormData) => {
+export const updateProfile = async (prevState: {success: boolean, error: boolean}, payload: {formData: FormData, cover:string}) => {
+    
+    const {formData, cover} = payload;
+    
     const fields = Object.fromEntries(formData);
 
     const filteredFields = Object.fromEntries(
@@ -179,16 +183,16 @@ export const updateProfile = async (formData: FormData) => {
         website: z.string().max(60).optional()
     });
 
-    const validatedFields = Profile.safeParse(filteredFields);
+    const validatedFields = Profile.safeParse({cover, ...filteredFields});
     
     if(!validatedFields.success) {
         console.log(validatedFields.error.flatten().fieldErrors);
-        return "error";
+        return {success: false, error: true};
     }
 
     const {userId} = auth();
 
-    if(!userId) return "error";
+    if(!userId) return {success: false, error: true};
 
     try {
         await prisma.user.update({
@@ -197,6 +201,167 @@ export const updateProfile = async (formData: FormData) => {
             },
             data: validatedFields.data
         });
+        return {success: true, error: false};
+    }
+    catch(err) {
+        console.log(err);
+        return {success: false, error: true};
+    }
+}
+
+export const switchLike = async (postId: number) => {
+    const {userId} = auth();
+
+    if (!userId) throw new Error("User is not authenticated");
+
+    try {
+        const existingLike = await prisma.like.findFirst({
+            where: {
+                postId: postId,
+                userId: userId
+            }
+        });
+
+        if(existingLike) {
+            await prisma.like.delete({
+                where: {
+                    id: existingLike.id
+                }
+            });
+        }
+        else {
+            await prisma.like.create({
+                data: {
+                    postId: postId,
+                    userId: userId
+                }
+
+            });
+        }
+    }
+    catch(err) {
+        console.log(err);
+        throw new Error("Something went wrong");
+    }
+
+}
+
+
+export const addComment = async (postId: number, desc: string) => {
+    const {userId} = auth();
+
+    if (!userId) throw new Error("User is not authenticated");
+
+    
+    try {
+        const createComment = await prisma.comment.create({
+            data: {
+                desc,
+                userId,
+                postId
+            },
+            include: {
+                user: true
+            }
+        }); 
+        return createComment;
+    }
+    catch(err) {
+        console.log(err);
+        throw new Error("Something went wrong");
+    }
+}
+
+export const addPost = async (formData: FormData, img: string) => {
+    const desc = formData.get("desc") as string;
+    const Desc = z.string().min(1).max(255);
+    const validatedDesc = Desc.safeParse(desc);
+
+    if(!validatedDesc.success) {
+        console.log("Description is not valid");
+        return;
+    }
+
+    const { userId } = auth();  
+
+    if (!userId) throw new Error("User is not authenticated");
+
+
+    try {
+        await prisma.post.create({
+            data: {
+                desc: validatedDesc.data,
+                userId,
+                img
+            }
+        });
+
+        revalidatePath("/");
+    }
+    catch(err) {
+        console.log(err);
+        return;
+    }
+
+}
+
+export const addStory = async (img: string) => {
+    const { userId } = auth();  
+
+    if (!userId) throw new Error("User is not authenticated");
+
+    try {
+
+        const existingStory = await prisma.story.findFirst({
+            where: {
+                userId
+            }
+        });
+
+        if(existingStory) {
+            await prisma.story.delete({
+                where: {
+                    id: existingStory.id
+                }
+            });
+        }
+
+        
+        const createdStory = await prisma.story.create({
+            data: {
+                userId,
+                img,
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+            },
+            include: {
+                user: true
+            }
+        }); 
+        
+        return createdStory;
+    }
+    catch(err) {
+        console.log(err);
+        return;
+    }
+
+}
+
+
+export const deletePost = async (postId: number) => {
+    const { userId } = auth();
+    
+    if(!userId) throw new Error("User is not authenticated !");
+
+    try {
+        await prisma.post.delete({
+            where: {
+                id: postId,
+                userId
+            }
+        });
+
+        revalidatePath("/");
     }
     catch(err) {
         console.log(err);

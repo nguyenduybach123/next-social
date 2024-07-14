@@ -1,4 +1,5 @@
 
+import Feed from "@/app/components/feed/Feed";
 import LeftMenu from "@/app/components/leftMenu/LeftMenu";
 import RightMenu from "@/app/components/rightMenu/RightMenu";
 import prisma from "@/lib/client";
@@ -71,6 +72,7 @@ const ProfilePage = async ({params}: {params:{username: string}}) => {
                         </div>
                     </div>
                 </div>
+                <Feed username={params.username} />
             </div>
             <div className='hidden lg:block w-[30%]'>
                 <RightMenu user={user} />

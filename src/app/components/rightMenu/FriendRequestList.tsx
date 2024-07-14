@@ -21,6 +21,7 @@ function FriendRequestList({requests}: {requests: RequestWithUser[] }) {
         }
         catch(err) {
             console.log(err);
+            
         }
     }
 
