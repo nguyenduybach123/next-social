@@ -16,5 +16,5 @@
      
    - CRUD (bài viết, kết bạn, bình luận, . . .) :     
    
-<h3>9. TÔNG KẾT :</h3>
+<h3>9. TỔNG KẾT :</h3>
 => Đây là một đồ án học tập nhầm nâng cao khả năng code NextJS và vẫn sẽ cần cập nhật nhiều
